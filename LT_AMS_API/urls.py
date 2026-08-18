@@ -23,13 +23,10 @@ router.register(r'messages', views.MessageViewSet, basename='message')
 router.register(r'reports', views.ReportViewSet, basename='report')
 
 urlpatterns = [
-    # Health Check
+    # Health Check Endpoint
     path('health/', views.health_check, name='api_health_check'),
 
-    # v1 API Services
-    path('v1/', include('LT_AMS_API.v1_urls')),
-
-    # Authentication Endpoints
+    # Authentication & User Management Endpoints
     path('auth/register/', views.RegisterAPIView.as_view(), name='auth_register'),
     path('auth/login/', views.LoginAPIView.as_view(), name='auth_login'),
     path('auth/request-otp/', views.RequestOTPAPIView.as_view(), name='auth_request_otp'),
@@ -38,8 +35,14 @@ urlpatterns = [
     path('auth/profile/', views.UserProfileAPIView.as_view(), name='auth_profile'),
     path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # Resource ViewSet Router
+    # Dashboard & Analytics Summary Endpoints
+    path('dashboard/metrics/', views.DashboardMetricsAPIView.as_view(), name='dashboard_metrics'),
+    path('dashboard/progress-trend/', views.DashboardProgressTrendAPIView.as_view(), name='dashboard_progress_trend'),
+    path('safety/alerts-summary/', views.SafetyAlertsSummaryAPIView.as_view(), name='safety_alerts_summary'),
+    path('workers/attendance-summary/', views.WorkerAttendanceSummaryAPIView.as_view(), name='worker_attendance_summary'),
+    path('cameras/ptz-control/', views.CameraControlAPIView.as_view(), name='cameras_ptz_control'),
+    path('cameras/<int:pk>/ptz-control/', views.CameraControlAPIView.as_view(), name='camera_detail_ptz_control'),
+
+    # Resource ViewSets Router (Full CRUD endpoints)
     path('', include(router.urls)),
 ]
-
-

@@ -1,4 +1,6 @@
+# pyrefly: ignore [missing-import]
 from rest_framework.test import APITestCase
+# pyrefly: ignore [missing-import]
 from rest_framework import status
 from django.urls import reverse
 from django.utils import timezone
@@ -178,11 +180,6 @@ class AuthAndCoreAPITestCase(APITestCase):
 
     def test_jwt_token_refresh_flow(self):
         # Create user and get tokens via login
-        user = ApplicationUser.objects.create_user(
-            username="refresher",
-            password="Password123",
-            employee=self.employee
-        )
         login_url = reverse('auth_login')
         login_response = self.client.post(login_url, {"username": "refresher", "password": "Password123"}, format='json')
         refresh_token = login_response.data['data']['tokens']['refresh']
@@ -210,6 +207,8 @@ class AuthAndCoreAPITestCase(APITestCase):
 class LocationAPITestCase(APITestCase):
 
     def setUp(self):
+        self.user, _ = ApplicationUser.objects.get_or_create(username="loc_user", defaults={"password": "Password123"})
+        self.client.force_authenticate(user=self.user)
         self.country = Country.objects.create(name="India", code="IN")
         self.state = State.objects.create(name="Maharashtra", code="MH", country=self.country)
         self.city = City.objects.create(name="Mumbai", state=self.state)
@@ -304,6 +303,8 @@ class LocationAPITestCase(APITestCase):
 class ProjectHierarchyAPITestCase(APITestCase):
 
     def setUp(self):
+        self.user, _ = ApplicationUser.objects.get_or_create(username="proj_user", defaults={"password": "Password123"})
+        self.client.force_authenticate(user=self.user)
         self.country = Country.objects.create(name="India", code="IN")
         self.state = State.objects.create(name="Maharashtra", code="MH", country=self.country)
         self.city = City.objects.create(name="Mumbai", state=self.state)
@@ -443,6 +444,8 @@ class ProjectHierarchyAPITestCase(APITestCase):
 class WorkforceAPITestCase(APITestCase):
 
     def setUp(self):
+        self.user, _ = ApplicationUser.objects.get_or_create(username="work_user", defaults={"password": "Password123"})
+        self.client.force_authenticate(user=self.user)
         self.org = Organization.objects.create(organization_code="LT_WORKFORCE", organization_name="L&T Workforce Org")
         self.employee = Employee.objects.create(
             organization_id=self.org.organization_id,
@@ -592,6 +595,8 @@ class WorkforceAPITestCase(APITestCase):
 class CameraAndAIMonitoringAPITestCase(APITestCase):
 
     def setUp(self):
+        self.user, _ = ApplicationUser.objects.get_or_create(username="ai_officer", defaults={"password": "Password123"})
+        self.client.force_authenticate(user=self.user)
         self.country = Country.objects.create(name="India", code="IN")
         self.state = State.objects.create(name="Maharashtra", code="MH", country=self.country)
         self.city = City.objects.create(name="Mumbai", state=self.state)
@@ -603,7 +608,6 @@ class CameraAndAIMonitoringAPITestCase(APITestCase):
             site=self.site,
             location="Entrance"
         )
-        self.user = ApplicationUser.objects.create_user(username="ai_officer", password="Password123")
         self.employee = Employee.objects.create(
             organization_id=1,
             employee_code="EMP_SAFETY",
@@ -620,6 +624,23 @@ class CameraAndAIMonitoringAPITestCase(APITestCase):
             severity="HIGH",
             status="OPEN"
         )
+
+    def test_camera_requires_authentication(self):
+        url = reverse('camera-list')
+        self.client.force_authenticate(user=None)
+        unauth_resp = self.client.get(url)
+        self.assertEqual(unauth_resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        post_unauth_resp = self.client.post(url, {
+            "name": "Unauthenticated Cam",
+            "rtsp_url": "http://10.1.82.235:8080/feed/0",
+            "site": self.site.site_id
+        })
+        self.assertEqual(post_unauth_resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        self.client.force_authenticate(user=self.user)
+        auth_resp = self.client.get(url)
+        self.assertEqual(auth_resp.status_code, status.HTTP_200_OK)
 
     def test_camera_crud_and_search(self):
         url = reverse('camera-list')
@@ -761,6 +782,8 @@ class CameraAndAIMonitoringAPITestCase(APITestCase):
 class OperationsAndCommunicationAPITestCase(APITestCase):
 
     def setUp(self):
+        self.user, _ = ApplicationUser.objects.get_or_create(username="ops_user", defaults={"password": "Password123"})
+        self.client.force_authenticate(user=self.user)
         self.country = Country.objects.create(name="India", code="IN")
         self.state = State.objects.create(name="Maharashtra", code="MH", country=self.country)
         self.city = City.objects.create(name="Mumbai", state=self.state)
@@ -919,3 +942,68 @@ class OperationsAndCommunicationAPITestCase(APITestCase):
         # DELETE Destroy
         delete_resp = self.client.delete(detail_url)
         self.assertEqual(delete_resp.status_code, status.HTTP_200_OK)
+
+    def test_camera_ptz_control(self):
+        cam = Camera.objects.create(
+            name="Demo PTZ Camera",
+            rtsp_url="http://10.1.82.235:8080/feed/0",
+            site=self.site,
+            type="PTZ"
+        )
+        url = reverse('camera-ptz', kwargs={'pk': cam.camera_id})
+        
+        # Test Unauthenticated
+        self.client.force_authenticate(user=None)
+        unauth_resp = self.client.post(url, {"action": "PAN LEFT", "pan": -30}, format='json')
+        self.assertEqual(unauth_resp.status_code, status.HTTP_401_UNAUTHORIZED)
+
+        # Test Authenticated
+        self.client.force_authenticate(user=self.user1)
+        auth_resp = self.client.post(url, {"action": "PAN LEFT", "pan": -30, "zoom": 1.35}, format='json')
+        self.assertEqual(auth_resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(auth_resp.data['success'])
+        self.assertEqual(auth_resp.data['data']['action'], 'PAN LEFT')
+
+
+class DashboardAndAnalyticsAPITestCase(APITestCase):
+
+    def setUp(self):
+        self.user = ApplicationUser.objects.create_user(username="analytics_user", password="Password123!")
+        self.client.force_authenticate(user=self.user)
+
+    def test_dashboard_metrics_endpoint(self):
+        url = reverse('dashboard_metrics')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'success')
+        self.assertIn('total_active_sites', response.data['data'])
+
+    def test_dashboard_progress_trend_endpoint(self):
+        url = reverse('dashboard_progress_trend')
+        res_month = self.client.get(f"{url}?range=month")
+        self.assertEqual(res_month.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_month.data['data']['labels']), 12)
+
+        res_week = self.client.get(f"{url}?range=week")
+        self.assertEqual(res_week.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(res_week.data['data']['labels']), 5)
+
+    def test_safety_alerts_summary_endpoint(self):
+        url = reverse('safety_alerts_summary')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'success')
+
+    def test_worker_attendance_summary_endpoint(self):
+        url = reverse('worker_attendance_summary')
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'success')
+
+    def test_camera_control_endpoint(self):
+        url = reverse('cameras_ptz_control')
+        response = self.client.post(url, {"camera_id": 1, "action": "TILT_UP", "tilt": 15}, format='json')
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data['status'], 'success')
+
+

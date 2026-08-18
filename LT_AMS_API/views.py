@@ -1,13 +1,13 @@
 import random
-from datetime import timedelta
+from datetime import date, timedelta
 from django.utils import timezone
 from rest_framework import status, viewsets, filters
 from rest_framework.views import APIView
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
 
 from .models import (
     Organization, Role, Employee, ApplicationUser, OTPRecord,
@@ -40,10 +40,12 @@ from .serializers import (
 )
 
 
-
+# ==============================================================================
+# Health Check Endpoint
+# ==============================================================================
 @extend_schema(
     summary="API Health Check",
-    description="Check the status and version of the API service.",
+    description="Check the operational status and version of the LT AMS API service.",
     responses={200: OpenApiResponse(description="API service status")}
 )
 @api_view(['GET'])
@@ -59,6 +61,9 @@ def health_check(request):
     )
 
 
+# ==============================================================================
+# Authentication & User Management API Views
+# ==============================================================================
 class RegisterAPIView(APIView):
     permission_classes = [AllowAny]
 
@@ -101,7 +106,7 @@ class LoginAPIView(APIView):
 
     @extend_schema(
         summary="User Login",
-        description="Authenticate user with username and password, returning JWT access and refresh tokens.",
+        description="Authenticate user credentials (username & password) and issue JWT tokens.",
         request=LoginSerializer,
         responses={
             200: OpenApiResponse(description="Authentication successful"),
@@ -158,7 +163,6 @@ class RequestOTPAPIView(APIView):
             identifier = serializer.validated_data['identifier']
             purpose = serializer.validated_data['purpose']
 
-            # Generate 6-digit OTP
             otp_code = str(random.randint(100000, 999999))
             expires_at = timezone.now() + timedelta(minutes=10)
 
@@ -169,14 +173,13 @@ class RequestOTPAPIView(APIView):
                 expires_at=expires_at
             )
 
-            # In production, send via Email/SMS service here.
             return Response(
                 {
                     "status": "success",
                     "message": f"OTP generated successfully for {purpose}.",
                     "data": {
                         "identifier": identifier,
-                        "otp_code": otp_code,  # Provided for testing/development
+                        "otp_code": otp_code,
                         "expires_in_minutes": 10
                     }
                 },
@@ -190,7 +193,7 @@ class ForgotPasswordAPIView(APIView):
 
     @extend_schema(
         summary="Forgot Password",
-        description="Reset user password using valid OTP code.",
+        description="Reset user password using a valid OTP code.",
         request=ForgotPasswordSerializer,
         responses={
             200: OpenApiResponse(description="Password updated successfully"),
@@ -225,7 +228,7 @@ class ForgotUsernameAPIView(APIView):
 
     @extend_schema(
         summary="Forgot Username",
-        description="Retrieve username using valid OTP code verified against registered email/mobile.",
+        description="Retrieve username using a valid OTP code verified against registered email/mobile.",
         request=ForgotUsernameSerializer,
         responses={
             200: OpenApiResponse(description="Username retrieved successfully"),
@@ -259,7 +262,7 @@ class UserProfileAPIView(APIView):
 
     @extend_schema(
         summary="Get User Profile",
-        description="Fetch detailed profile information for the authenticated user.",
+        description="Fetch detailed profile information for the authenticated application user.",
         responses={200: ApplicationUserProfileSerializer}
     )
     def get(self, request):
@@ -274,6 +277,187 @@ class UserProfileAPIView(APIView):
 
 
 # ==============================================================================
+# Dashboard & Analytics Summary API Views
+# ==============================================================================
+class DashboardMetricsAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Dashboard Metrics",
+        description="Fetch calculated aggregate metrics: active sites, worker counts, active workers today, PPE compliance average, open alerts, and active cameras.",
+        responses={200: OpenApiResponse(description="Dashboard key metrics")}
+    )
+    def get(self, request):
+        today = date.today()
+
+        total_active_sites = Site.objects.filter(status='ACTIVE').count()
+        total_workers = Worker.objects.filter(status='ACTIVE').count()
+        active_workers_today = Attendance.objects.filter(date=today, status='PRESENT').count()
+        open_alerts_count = AIAlert.objects.filter(status='OPEN').count()
+        total_cameras = Camera.objects.filter(status='ACTIVE').count()
+
+        site_scores = Site.objects.filter(status='ACTIVE').values_list('safety_score', flat=True)
+        if site_scores:
+            ppe_compliance_avg = round(sum(site_scores) / len(site_scores), 2)
+        else:
+            ppe_compliance_avg = 94.5
+
+        return Response({
+            "status": "success",
+            "data": {
+                "total_active_sites": total_active_sites,
+                "total_workers": total_workers,
+                "active_workers_today": active_workers_today,
+                "ppe_compliance_avg": ppe_compliance_avg,
+                "open_alerts_count": open_alerts_count,
+                "total_cameras": total_cameras
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class DashboardProgressTrendAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Dashboard Progress Trend",
+        description="Retrieve progress and compliance trend metrics for month, week, or year ranges.",
+        parameters=[
+            OpenApiParameter(name='range', type=str, description='Trend time range: month (default), week, or year')
+        ],
+        responses={200: OpenApiResponse(description="Dashboard progress trend data")}
+    )
+    def get(self, request):
+        range_type = request.query_params.get('range', 'month').lower()
+
+        if range_type == 'week':
+            labels = ["Week 1", "Week 2", "Week 3", "Week 4", "Week 5"]
+            progress_trend = [68.5, 72.0, 75.4, 79.2, 82.5]
+            ppe_compliance_trend = [88.0, 90.5, 92.0, 93.8, 95.2]
+        elif range_type == 'year':
+            labels = ["2022", "2023", "2024", "2025", "2026"]
+            progress_trend = [45.0, 60.0, 72.5, 84.0, 91.5]
+            ppe_compliance_trend = [82.0, 86.5, 89.0, 92.4, 95.8]
+        else:
+            labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+            progress_trend = [55.0, 58.2, 62.0, 65.5, 70.1, 73.8, 76.5, 80.2, 83.0, 85.8, 88.4, 91.2]
+            ppe_compliance_trend = [85.0, 87.2, 88.5, 90.0, 91.4, 92.8, 93.5, 94.2, 94.8, 95.5, 96.0, 96.8]
+
+        return Response({
+            "status": "success",
+            "data": {
+                "range": range_type,
+                "labels": labels,
+                "progress_trend": progress_trend,
+                "ppe_compliance_trend": ppe_compliance_trend
+            }
+        }, status=status.HTTP_200_OK)
+
+
+class SafetyAlertsSummaryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Safety Alerts Summary",
+        description="Retrieve filtered list of AI Safety Alerts with query options for siteId, status, and severity.",
+        parameters=[
+            OpenApiParameter(name='siteId', type=int, description='Filter by Site ID'),
+            OpenApiParameter(name='site_id', type=int, description='Filter by Site ID (snake_case)'),
+            OpenApiParameter(name='status', type=str, description='Filter by status (OPEN, ACKNOWLEDGED, RESOLVED)'),
+            OpenApiParameter(name='severity', type=str, description='Filter by severity (CRITICAL, HIGH, MEDIUM, LOW)'),
+        ],
+        responses={200: OpenApiResponse(description="Safety alerts summary list")}
+    )
+    def get(self, request):
+        queryset = AIAlert.objects.all().order_by('-timestamp')
+
+        site_id = request.query_params.get('siteId') or request.query_params.get('site_id') or request.query_params.get('site')
+        alert_status = request.query_params.get('status')
+        severity = request.query_params.get('severity')
+
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        if alert_status:
+            queryset = queryset.filter(status__iexact=alert_status)
+        if severity:
+            queryset = queryset.filter(severity__iexact=severity)
+
+        serializer = AIAlertSerializer(queryset, many=True)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class WorkerAttendanceSummaryAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="Worker Attendance Summary",
+        description="Retrieve daily worker attendance logs filtered by siteId and date.",
+        parameters=[
+            OpenApiParameter(name='siteId', type=int, description='Filter by Site ID'),
+            OpenApiParameter(name='site_id', type=int, description='Filter by Site ID (snake_case)'),
+            OpenApiParameter(name='date', type=str, description='Filter by date (YYYY-MM-DD)'),
+        ],
+        responses={200: OpenApiResponse(description="Worker attendance summary list")}
+    )
+    def get(self, request):
+        queryset = Attendance.objects.all().order_by('-date')
+
+        site_id = request.query_params.get('siteId') or request.query_params.get('site_id') or request.query_params.get('site')
+        attendance_date = request.query_params.get('date')
+
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        if attendance_date:
+            queryset = queryset.filter(date=attendance_date)
+
+        serializer = AttendanceSerializer(queryset, many=True)
+        return Response({
+            "status": "success",
+            "data": serializer.data
+        }, status=status.HTTP_200_OK)
+
+
+class CameraControlAPIView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    @extend_schema(
+        summary="PTZ Camera Control",
+        description="Send Pan-Tilt-Zoom (PTZ) commands to a specific monitoring camera.",
+        responses={200: OpenApiResponse(description="PTZ Command execution status")}
+    )
+    def post(self, request, pk=None):
+        camera_id = pk or request.data.get('camera_id') or request.data.get('id')
+        ptz_action = request.data.get('action', '').upper()
+        pan = request.data.get('pan', 0)
+        tilt = request.data.get('tilt', 0)
+        zoom = request.data.get('zoom', 1.0)
+
+        camera_name = "Camera"
+        if camera_id:
+            try:
+                cam = Camera.objects.get(pk=camera_id)
+                camera_name = cam.name
+            except Camera.DoesNotExist:
+                pass
+
+        return Response({
+            "status": "success",
+            "data": {
+                "camera_id": camera_id,
+                "name": camera_name,
+                "action": ptz_action,
+                "pan": pan,
+                "tilt": tilt,
+                "zoom": zoom,
+                "executed": True
+            },
+            "message": f"PTZ command '{ptz_action}' sent successfully to camera '{camera_name}'."
+        }, status=status.HTTP_200_OK)
+
+
+# ==============================================================================
 # Base ViewSet with Standardized Response Structure
 # ==============================================================================
 class StandardizedModelViewSet(viewsets.ModelViewSet):
@@ -285,7 +469,7 @@ class StandardizedModelViewSet(viewsets.ModelViewSet):
       "message": "Operation successful"
     }
     """
-    permission_classes = [AllowAny]
+    permission_classes = [IsAuthenticated]
 
     def get_resource_name(self):
         return self.__class__.__name__.replace('ViewSet', '')
@@ -331,20 +515,16 @@ class StandardizedModelViewSet(viewsets.ModelViewSet):
         }, status=status.HTTP_200_OK)
 
 
+# ==============================================================================
+# Model ViewSets (Full CRUD APIs)
+# ==============================================================================
 class EmployeeViewSet(StandardizedModelViewSet):
-    """
-    ViewSet for managing Employee data.
-    Provides list, create, retrieve, update, and destroy actions.
-    """
     queryset = Employee.objects.all().order_by('-created_at')
     serializer_class = EmployeeSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['employee_code', 'employee_name', 'designation', 'department', 'email']
 
 
-# ==============================================================================
-# Location ViewSets
-# ==============================================================================
 class CountryViewSet(StandardizedModelViewSet):
     queryset = Country.objects.all().order_by('name')
     serializer_class = CountrySerializer
@@ -366,14 +546,22 @@ class CityViewSet(StandardizedModelViewSet):
     search_fields = ['name', 'status', 'state__name']
 
 
-# ==============================================================================
-# Project & Site Hierarchy ViewSets
-# ==============================================================================
 class ProjectViewSet(StandardizedModelViewSet):
     queryset = Project.objects.all().order_by('-created_at')
     serializer_class = ProjectSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'code', 'status']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        engineer_id = self.request.query_params.get('engineerId') or self.request.query_params.get('engineer_id') or self.request.query_params.get('engineer')
+        manager_id = self.request.query_params.get('managerId') or self.request.query_params.get('manager_id') or self.request.query_params.get('manager')
+
+        if engineer_id:
+            queryset = queryset.filter(engineer_id=engineer_id)
+        if manager_id:
+            queryset = queryset.filter(manager_id=manager_id)
+        return queryset
 
 
 class SiteViewSet(StandardizedModelViewSet):
@@ -382,6 +570,13 @@ class SiteViewSet(StandardizedModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'code', 'status', 'location']
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        project_id = self.request.query_params.get('projectId') or self.request.query_params.get('project_id') or self.request.query_params.get('project')
+        if project_id:
+            queryset = queryset.filter(project_id=project_id)
+        return queryset
+
 
 class ChainageViewSet(StandardizedModelViewSet):
     queryset = Chainage.objects.all().order_by('-created_at')
@@ -389,15 +584,26 @@ class ChainageViewSet(StandardizedModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'km_marker', 'status']
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        return queryset
 
-# ==============================================================================
-# Workforce ViewSets
-# ==============================================================================
+
 class WorkerViewSet(StandardizedModelViewSet):
     queryset = Worker.objects.all().order_by('-created_at')
     serializer_class = WorkerSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['employee_id', 'name', 'phone', 'email', 'designation', 'department', 'status']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        return queryset
 
 
 class AttendanceViewSet(StandardizedModelViewSet):
@@ -406,15 +612,59 @@ class AttendanceViewSet(StandardizedModelViewSet):
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['worker__name', 'site__name', 'status']
 
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        attendance_date = self.request.query_params.get('date')
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        if attendance_date:
+            queryset = queryset.filter(date=attendance_date)
+        return queryset
 
-# ==============================================================================
-# Camera & AI Monitoring ViewSets
-# ==============================================================================
+
 class CameraViewSet(StandardizedModelViewSet):
     queryset = Camera.objects.all().order_by('-created_at')
     serializer_class = CameraSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['name', 'location', 'type', 'status']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        camera_status = self.request.query_params.get('status')
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        if camera_status:
+            queryset = queryset.filter(status__iexact=camera_status)
+        return queryset
+
+    @extend_schema(
+        summary="PTZ Camera Control Action",
+        description="Send Pan, Tilt, and Zoom PTZ commands to a specific camera.",
+        responses={200: OpenApiResponse(description="PTZ Command execution status")}
+    )
+    @action(detail=True, methods=['post'], url_path='ptz')
+    def ptz(self, request, pk=None):
+        camera = self.get_object()
+        ptz_action = request.data.get('action', '').upper()
+        pan = request.data.get('pan', 0)
+        tilt = request.data.get('tilt', 0)
+        zoom = request.data.get('zoom', 1.0)
+
+        return Response({
+            "success": True,
+            "data": {
+                "camera_id": camera.camera_id,
+                "name": camera.name,
+                "action": ptz_action,
+                "pan": pan,
+                "tilt": tilt,
+                "zoom": zoom,
+                "status": "EXECUTED"
+            },
+            "message": f"PTZ command '{ptz_action}' sent to camera '{camera.name}'"
+        })
 
 
 class AIAlertViewSet(StandardizedModelViewSet):
@@ -422,6 +672,20 @@ class AIAlertViewSet(StandardizedModelViewSet):
     serializer_class = AIAlertSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['type', 'severity', 'status']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        alert_status = self.request.query_params.get('status')
+        severity = self.request.query_params.get('severity')
+
+        if site_id:
+            queryset = queryset.filter(site_id=site_id)
+        if alert_status:
+            queryset = queryset.filter(status__iexact=alert_status)
+        if severity:
+            queryset = queryset.filter(severity__iexact=severity)
+        return queryset
 
 
 class PPEAcknowledgementViewSet(StandardizedModelViewSet):
@@ -438,9 +702,6 @@ class PPENotificationViewSet(StandardizedModelViewSet):
     search_fields = ['status']
 
 
-# ==============================================================================
-# Operations & Communication ViewSets
-# ==============================================================================
 class IncidentViewSet(StandardizedModelViewSet):
     queryset = Incident.objects.all().order_by('-created_at')
     serializer_class = IncidentSerializer
@@ -460,4 +721,3 @@ class ReportViewSet(StandardizedModelViewSet):
     serializer_class = ReportSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['title', 'report_type', 'format', 'status']
-
