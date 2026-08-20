@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  backend:
+    build: .
+    container_name: lt_ams_backend
+    restart: always
+    ports:
+      - "8000:8000"
+    environment:
+      - DB_ENVIRONMENT=server
+      - SERVER_DB_NAME=landtdb
+      - SERVER_DB_USER=landtuser
+      - SERVER_DB_PASSWORD=admin@123
+      - SERVER_DB_HOST=10.1.150.142
+      - SERVER_DB_PORT=5432
+      - SECRET_KEY=django-insecure-1p2al4x$=q5v$i%yhjfgz1cja@9a7_!#i5@3nwkmeb!tv!7gs-
+      - DEBUG=False
+      - ALLOWED_HOSTS=*
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

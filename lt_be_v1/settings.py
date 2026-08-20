@@ -83,14 +83,33 @@ AUTH_USER_MODEL = 'LT_AMS_API.ApplicationUser'
 # Database Setup (Local vs Server PostgreSQL)
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
 
+import sys
+
 DB_ENV = os.getenv('DB_ENVIRONMENT', 'local').lower()
 
-if DB_ENV == 'server':
+if 'test' in sys.argv or os.getenv('USE_SQLITE', 'False').lower() == 'true' or DB_ENV in ['sqlite', 'sqlite3']:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
+elif DB_ENV == 'server':
     DB_NAME = os.getenv('SERVER_DB_NAME', 'landtdb')
     DB_USER = os.getenv('SERVER_DB_USER', 'landtuser')
-    DB_PASSWORD = os.getenv('SERVER_DB_PASSWORD', 'Admin@123')
+    DB_PASSWORD = os.getenv('SERVER_DB_PASSWORD', 'admin@123')
     DB_HOST = os.getenv('SERVER_DB_HOST', 'localhost')
     DB_PORT = os.getenv('SERVER_DB_PORT', '5432')
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': DB_NAME,
+            'USER': DB_USER,
+            'PASSWORD': DB_PASSWORD,
+            'HOST': DB_HOST,
+            'PORT': DB_PORT,
+        }
+    }
 else:
     # Default to Local Database
     DB_NAME = os.getenv('LOCAL_DB_NAME', 'landtdb-local')
@@ -98,17 +117,16 @@ else:
     DB_PASSWORD = os.getenv('LOCAL_DB_PASSWORD', 'admin@123')
     DB_HOST = os.getenv('LOCAL_DB_HOST', 'localhost')
     DB_PORT = os.getenv('LOCAL_DB_PORT', '5432')
-
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': DB_NAME,
-        'USER': DB_USER,
-        'PASSWORD': DB_PASSWORD,
-        'HOST': DB_HOST,
-        'PORT': DB_PORT,
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': DB_NAME,
+            'USER': DB_USER,
+            'PASSWORD': DB_PASSWORD,
+            'HOST': DB_HOST,
+            'PORT': DB_PORT,
+        }
     }
-}
 
 
 # Password validation
@@ -146,7 +164,8 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-
+STATICFILES_DIRS = [BASE_DIR/'static',]
+STATIC_ROOT = BASE_DIR/'staticfiles'
 # Django REST Framework Settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (

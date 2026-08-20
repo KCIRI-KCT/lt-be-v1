@@ -180,6 +180,7 @@ class AuthAndCoreAPITestCase(APITestCase):
 
     def test_jwt_token_refresh_flow(self):
         # Create user and get tokens via login
+        ApplicationUser.objects.create_user(username="refresher", password="Password123")
         login_url = reverse('auth_login')
         login_response = self.client.post(login_url, {"username": "refresher", "password": "Password123"}, format='json')
         refresh_token = login_response.data['data']['tokens']['refresh']
@@ -777,6 +778,76 @@ class CameraAndAIMonitoringAPITestCase(APITestCase):
         # DELETE Destroy
         delete_resp = self.client.delete(detail_url)
         self.assertEqual(delete_resp.status_code, status.HTTP_200_OK)
+
+    def test_ppe_notification_hitl_resolve_flow_and_project_engineer_reflection(self):
+        # 1. Create Safety Officer & Project Engineer employee accounts
+        proj_eng_emp = Employee.objects.create(
+            organization_id=1,
+            employee_code="EMP_PROJ_ENG",
+            employee_name="Project Engineer Peter",
+            designation="Project Engineer",
+            department="Engineering",
+            email="peter.pe@example.com",
+            mobile_number="9876543999"
+        )
+        self.project.engineer = proj_eng_emp
+        self.project.save()
+
+        # Create user for Project Engineer
+        proj_eng_user = ApplicationUser.objects.create_user(
+            username="proj_engineer",
+            password="Password123",
+            employee=proj_eng_emp,
+            role_id=5
+        )
+
+        # 2. Create PPE Notification
+        notif = PPENotification.objects.create(
+            alert=self.ai_alert,
+            safety_officer=self.employee,
+            status="pending_review",
+            hitl_data={"bounding_box": [10, 20, 50, 60]}
+        )
+
+        # 3. Verify all users (including Project Engineer) can view notification details
+        self.client.force_authenticate(user=proj_eng_user)
+        list_url = reverse('ppenotification-list')
+        list_resp = self.client.get(list_url)
+        self.assertEqual(list_resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(list_resp.data['success'])
+        self.assertGreater(len(list_resp.data['data']), 0)
+
+        detail_url = reverse('ppenotification-detail', kwargs={'pk': notif.notification_id})
+        detail_resp = self.client.get(detail_url)
+        self.assertEqual(detail_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(detail_resp.data['data']['project_engineer_name'], "Project Engineer Peter")
+
+        # 4. Safety Officer triggers HITL Resolution
+        self.client.force_authenticate(user=self.user)
+        hitl_url = reverse('ppenotification-hitl-resolve', kwargs={'pk': notif.notification_id})
+        hitl_payload = {
+            "decision": "SOLVED",
+            "notes": "Safety helmet provided to operator and safety warning issued.",
+            "hitl_data": {"confidence": 0.98, "verified": True}
+        }
+        hitl_resp = self.client.post(hitl_url, hitl_payload, format='json')
+        self.assertEqual(hitl_resp.status_code, status.HTTP_200_OK)
+        self.assertTrue(hitl_resp.data['success'])
+        self.assertEqual(hitl_resp.data['data']['status'], "SOLVED")
+
+        # 5. Verify status reflection back to Project Engineer
+        self.client.force_authenticate(user=proj_eng_user)
+        pe_view_resp = self.client.get(detail_url)
+        self.assertEqual(pe_view_resp.status_code, status.HTTP_200_OK)
+        self.assertEqual(pe_view_resp.data['data']['status'], "SOLVED")
+
+        # Verify parent AIAlert status updated to RESOLVED
+        self.ai_alert.refresh_from_db()
+        self.assertEqual(self.ai_alert.status, "RESOLVED")
+
+        # Verify PPEAcknowledgement entry created
+        ack_exists = PPEAcknowledgement.objects.filter(alert=self.ai_alert).exists()
+        self.assertTrue(ack_exists)
 
 
 class OperationsAndCommunicationAPITestCase(APITestCase):

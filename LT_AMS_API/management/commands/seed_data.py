@@ -23,32 +23,28 @@ class Command(BaseCommand):
 
         # 2. Roles
         roles_data = [
-            (1, 'Admin', 'System Administrator with full permissions'),
-            (2, 'Project Manager', 'Oversees project budget, timeline and operations'),
-            (3, 'Site Supervisor', 'Manages daily site activities and workforce'),
-            (4, 'Site Engineer', 'Manages engineering tasks on construction sites'),
-            (5, 'Project Engineer', 'Handles project engineering design and planning'),
-            (6, 'Safety Manager', 'Leads safety compliance and incident management'),
-            (7, 'Safety Engineer', 'Monitors safety hazards and PPE compliance'),
+            (1, 'Admin', 'System Administrator with full system permissions'),
+            (2, 'Project Manager', 'Oversees project budget, timeline and site operations'),
+            (3, 'Site Supervisor', 'Manages daily site activities and workforce supervision'),
+            (4, 'Site Engineer', 'Manages engineering execution and quality on construction sites'),
+            (6, 'Safety Manager', 'Leads safety compliance, risk assessment and incident response'),
+            (7, 'Safety Engineer', 'Monitors site safety hazards and PPE compliance'),
         ]
 
-        role_objs = {}
         for r_id, r_name, r_desc in roles_data:
-            role, _ = Role.objects.get_or_create(
+            Role.objects.get_or_create(
                 role_id=r_id,
                 defaults={'role_name': r_name, 'role_description': r_desc, 'status': 'ACTIVE'}
             )
-            role_objs[r_name] = role
 
         # 3. Employees & Application Users
         users_data = [
-            ('EMP_ADM_01', 'System Admin', 'System Administrator', 'IT & Admin', 'admin@landt.local', '9000000001', 'admin', 1),
-            ('EMP_PM_01', 'Rajesh Kumar', 'Project Manager', 'Project Management', 'pm@landt.local', '9000000002', 'pm_user', 2),
-            ('EMP_SS_01', 'Suresh Raina', 'Site Supervisor', 'Site Operations', 'supervisor@landt.local', '9000000003', 'supervisor_user', 3),
-            ('EMP_SE_01', 'Venkatesh Iyer', 'Site Engineer', 'Civil Engineering', 'site_eng@landt.local', '9000000004', 'site_eng_user', 4),
-            ('EMP_PE_01', 'Anand Verma', 'Project Engineer', 'Planning & Design', 'proj_eng@landt.local', '9000000005', 'proj_eng_user', 5),
-            ('EMP_SM_01', 'Priya Sharma', 'Safety Manager', 'HSE & Safety', 'safety_mgr@landt.local', '9000000006', 'safety_mgr_user', 6),
-            ('EMP_SE2_01', 'Rahul Dravid', 'Safety Engineer', 'HSE & Safety', 'safety_eng@landt.local', '9000000007', 'safety_eng_user', 7),
+            ('LT_EMP_ADM01', 'System Administrator', 'Chief System Admin', 'IT & Enterprise Systems', 'admin@lt.com', '+919800000001', 'admin', 1),
+            ('LT_EMP_PM01', 'Project Manager', 'Senior Project Manager', 'Project Management', 'projectmanager@lt.com', '+919800000002', 'projectmanager', 2),
+            ('LT_EMP_SS01', 'Site Supervisor', 'Senior Site Supervisor', 'Site Operations', 'sitesupervisor@lt.com', '+919800000003', 'sitesupervisor', 3),
+            ('LT_EMP_SE01', 'Site Engineer', 'Lead Site Engineer', 'Civil Engineering', 'siteengineer@lt.com', '+919800000004', 'siteengineer', 4),
+            ('LT_EMP_SO01', 'safety officer', 'Safety Officer', 'Health Safety & Environment', 'safetyofficer@larsentoubro.com', '+919800000006', 'safetymanager', 6),
+            ('LT_EMP_SE02', 'safety engineer', 'Safety Engineer', 'Health Safety & Environment', 'safetyengineer@larsentoubro.com', '+919800000007', 'safetyengineer', 7),
         ]
 
         hashed_password = make_password('Admin@123')
@@ -83,9 +79,9 @@ class Command(BaseCommand):
         city, _ = City.objects.get_or_create(name='Chennai', state=state, defaults={'status': 'ACTIVE'})
 
         # 5. Project & Site
-        pm_emp = Employee.objects.get(employee_code='EMP_PM_01')
-        ss_emp = Employee.objects.get(employee_code='EMP_SS_01')
-        se_emp = Employee.objects.get(employee_code='EMP_SE_01')
+        pm_emp = Employee.objects.get(employee_code='LT_EMP_PM01')
+        ss_emp = Employee.objects.get(employee_code='LT_EMP_SS01')
+        se_emp = Employee.objects.get(employee_code='LT_EMP_SE01')
 
         project, _ = Project.objects.get_or_create(
             code='PRJ-CHN-01',
@@ -117,25 +113,25 @@ class Command(BaseCommand):
 
         # 6. Camera & Worker
         Camera.objects.get_or_create(
-            name='CAM-SITE12-NORTH',
+            name='CAM-OMR12-NORTH-GATE',
             site=site,
             defaults={
-                'rtsp_url': 'rtsp://admin:admin123@192.168.1.100:554/stream1',
-                'location': 'North Gate Entry',
+                'rtsp_url': 'rtsp://camera.omr12.landt.internal:554/live/stream1',
+                'location': 'North Gate Entry & Inspection',
                 'status': 'ACTIVE',
                 'type': 'PTZ',
                 'resolution': '4K',
-                'health_score': 99.0
+                'health_score': 100.0
             }
         )
 
         Worker.objects.get_or_create(
             employee_id='WRK-1001',
             defaults={
-                'name': 'Arun Sharma',
-                'phone': '9123456789',
-                'designation': 'Site Operator',
-                'department': 'Safety & Ops',
+                'name': 'Arun Kumar',
+                'phone': '+919123456789',
+                'designation': 'Equipment Operator',
+                'department': 'Site Operations',
                 'site': site,
                 'status': 'ACTIVE'
             }

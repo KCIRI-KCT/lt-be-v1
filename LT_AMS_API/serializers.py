@@ -1,6 +1,5 @@
 from rest_framework import serializers
 from django.contrib.auth import authenticate
-from django.utils import timezone
 from django.db import models
 from .models import (
     Organization, Role, Employee, ApplicationUser, OTPRecord,
@@ -376,6 +375,10 @@ class PPEAcknowledgementSerializer(serializers.ModelSerializer):
 
 class PPENotificationSerializer(serializers.ModelSerializer):
     safety_officer_name = serializers.CharField(source='safety_officer.employee_name', read_only=True)
+    alert_type = serializers.CharField(source='alert.type', read_only=True)
+    site_name = serializers.CharField(source='alert.site.name', read_only=True)
+    project_name = serializers.CharField(source='alert.site.project.name', read_only=True)
+    project_engineer_name = serializers.CharField(source='alert.site.project.engineer.employee_name', read_only=True)
 
     class Meta:
         model = PPENotification

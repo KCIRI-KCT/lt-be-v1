@@ -41,7 +41,7 @@ urlpatterns = [
     path('safety/alerts-summary/', views.SafetyAlertsSummaryAPIView.as_view(), name='safety_alerts_summary'),
     path('workers/attendance-summary/', views.WorkerAttendanceSummaryAPIView.as_view(), name='worker_attendance_summary'),
     path('cameras/ptz-control/', views.CameraControlAPIView.as_view(), name='cameras_ptz_control'),
-    path('cameras/<int:pk>/ptz-control/', views.CameraControlAPIView.as_view(), name='camera_detail_ptz_control'),
+    path('cameras/<int:pk>/ptz-control/', views.CameraDetailControlAPIView.as_view(), name='camera_detail_ptz_control'),
 
     # Resource ViewSets Router (Full CRUD endpoints)
     path('', include(router.urls)),

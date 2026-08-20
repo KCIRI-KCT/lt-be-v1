@@ -1,16 +1,16 @@
 import random
 from datetime import date, timedelta
 from django.utils import timezone
-from rest_framework import status, viewsets, filters
+from rest_framework import status, viewsets, filters, serializers
 from rest_framework.views import APIView
 from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
-from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse
+from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, inline_serializer
 
 from .models import (
-    Organization, Role, Employee, ApplicationUser, OTPRecord,
+    Employee, ApplicationUser, OTPRecord,
     Country, State, City, Project, Site, Chainage, Worker, Attendance,
     Camera, AIAlert, PPEAcknowledgement, PPENotification, Incident, Message, Report
 )
@@ -38,6 +38,35 @@ from .serializers import (
     MessageSerializer,
     ReportSerializer
 )
+
+
+# ==============================================================================
+# Helper Functions
+# ==============================================================================
+def _get_site_id(request):
+    """Extract site ID from multiple possible query parameter variations."""
+    return (
+        request.query_params.get('siteId') or
+        request.query_params.get('site_id') or
+        request.query_params.get('site')
+    )
+
+
+def _build_ptz_response(camera_id, camera_name, ptz_action, pan=0, tilt=0, zoom=1.0, is_action=False):
+    """Format standardized PTZ command execution response dictionary."""
+    res = {
+        "camera_id": camera_id,
+        "name": camera_name,
+        "action": ptz_action,
+        "pan": pan,
+        "tilt": tilt,
+        "zoom": zoom,
+    }
+    if is_action:
+        res["status"] = "EXECUTED"
+    else:
+        res["executed"] = True
+    return res
 
 
 # ==============================================================================
@@ -370,7 +399,7 @@ class SafetyAlertsSummaryAPIView(APIView):
     def get(self, request):
         queryset = AIAlert.objects.all().order_by('-timestamp')
 
-        site_id = request.query_params.get('siteId') or request.query_params.get('site_id') or request.query_params.get('site')
+        site_id = _get_site_id(request)
         alert_status = request.query_params.get('status')
         severity = request.query_params.get('severity')
 
@@ -404,7 +433,7 @@ class WorkerAttendanceSummaryAPIView(APIView):
     def get(self, request):
         queryset = Attendance.objects.all().order_by('-date')
 
-        site_id = request.query_params.get('siteId') or request.query_params.get('site_id') or request.query_params.get('site')
+        site_id = _get_site_id(request)
         attendance_date = request.query_params.get('date')
 
         if site_id:
@@ -423,8 +452,20 @@ class CameraControlAPIView(APIView):
     permission_classes = [IsAuthenticated]
 
     @extend_schema(
+        operation_id="cameras_ptz_control_create",
         summary="PTZ Camera Control",
-        description="Send Pan-Tilt-Zoom (PTZ) commands to a specific monitoring camera.",
+        description="Send Pan-Tilt-Zoom (PTZ) commands to a specific monitoring camera by camera_id in payload.",
+        request=inline_serializer(
+            name='CameraControlRequest',
+            fields={
+                'camera_id': serializers.IntegerField(required=False, help_text="ID of the camera"),
+                'id': serializers.IntegerField(required=False, help_text="Alias for camera_id"),
+                'action': serializers.CharField(required=True, help_text="PTZ action command (e.g. PAN_LEFT, TILT_UP, ZOOM_IN)"),
+                'pan': serializers.IntegerField(default=0, help_text="Pan value"),
+                'tilt': serializers.IntegerField(default=0, help_text="Tilt value"),
+                'zoom': serializers.FloatField(default=1.0, help_text="Zoom factor"),
+            }
+        ),
         responses={200: OpenApiResponse(description="PTZ Command execution status")}
     )
     def post(self, request, pk=None):
@@ -444,17 +485,29 @@ class CameraControlAPIView(APIView):
 
         return Response({
             "status": "success",
-            "data": {
-                "camera_id": camera_id,
-                "name": camera_name,
-                "action": ptz_action,
-                "pan": pan,
-                "tilt": tilt,
-                "zoom": zoom,
-                "executed": True
-            },
+            "data": _build_ptz_response(camera_id, camera_name, ptz_action, pan, tilt, zoom, is_action=False),
             "message": f"PTZ command '{ptz_action}' sent successfully to camera '{camera_name}'."
         }, status=status.HTTP_200_OK)
+
+
+class CameraDetailControlAPIView(CameraControlAPIView):
+    @extend_schema(
+        operation_id="camera_detail_ptz_control_create",
+        summary="PTZ Camera Control by ID",
+        description="Send Pan-Tilt-Zoom (PTZ) commands to a camera specified by URL ID parameter.",
+        request=inline_serializer(
+            name='CameraDetailControlRequest',
+            fields={
+                'action': serializers.CharField(required=True, help_text="PTZ action command (e.g. PAN_LEFT, TILT_UP, ZOOM_IN)"),
+                'pan': serializers.IntegerField(default=0, help_text="Pan value"),
+                'tilt': serializers.IntegerField(default=0, help_text="Tilt value"),
+                'zoom': serializers.FloatField(default=1.0, help_text="Zoom factor"),
+            }
+        ),
+        responses={200: OpenApiResponse(description="PTZ Command execution status")}
+    )
+    def post(self, request, pk=None):
+        return super().post(request, pk=pk)
 
 
 # ==============================================================================
@@ -586,7 +639,7 @@ class ChainageViewSet(StandardizedModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        site_id = _get_site_id(self.request)
         if site_id:
             queryset = queryset.filter(site_id=site_id)
         return queryset
@@ -600,7 +653,7 @@ class WorkerViewSet(StandardizedModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        site_id = _get_site_id(self.request)
         if site_id:
             queryset = queryset.filter(site_id=site_id)
         return queryset
@@ -614,7 +667,7 @@ class AttendanceViewSet(StandardizedModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        site_id = _get_site_id(self.request)
         attendance_date = self.request.query_params.get('date')
         if site_id:
             queryset = queryset.filter(site_id=site_id)
@@ -631,7 +684,7 @@ class CameraViewSet(StandardizedModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        site_id = _get_site_id(self.request)
         camera_status = self.request.query_params.get('status')
         if site_id:
             queryset = queryset.filter(site_id=site_id)
@@ -654,15 +707,7 @@ class CameraViewSet(StandardizedModelViewSet):
 
         return Response({
             "success": True,
-            "data": {
-                "camera_id": camera.camera_id,
-                "name": camera.name,
-                "action": ptz_action,
-                "pan": pan,
-                "tilt": tilt,
-                "zoom": zoom,
-                "status": "EXECUTED"
-            },
+            "data": _build_ptz_response(camera.camera_id, camera.name, ptz_action, pan, tilt, zoom, is_action=True),
             "message": f"PTZ command '{ptz_action}' sent to camera '{camera.name}'"
         })
 
@@ -675,7 +720,7 @@ class AIAlertViewSet(StandardizedModelViewSet):
 
     def get_queryset(self):
         queryset = super().get_queryset()
-        site_id = self.request.query_params.get('siteId') or self.request.query_params.get('site_id') or self.request.query_params.get('site')
+        site_id = _get_site_id(self.request)
         alert_status = self.request.query_params.get('status')
         severity = self.request.query_params.get('severity')
 
@@ -700,6 +745,67 @@ class PPENotificationViewSet(StandardizedModelViewSet):
     serializer_class = PPENotificationSerializer
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
     search_fields = ['status']
+
+    def get_queryset(self):
+        queryset = super().get_queryset()
+        site_id = _get_site_id(self.request)
+        notification_status = self.request.query_params.get('status')
+        alert_id = self.request.query_params.get('alert_id') or self.request.query_params.get('alertId')
+
+        if site_id:
+            queryset = queryset.filter(alert__site_id=site_id)
+        if notification_status:
+            queryset = queryset.filter(status__iexact=notification_status)
+        if alert_id:
+            queryset = queryset.filter(alert_id=alert_id)
+        return queryset
+
+    @extend_schema(
+        summary="HITL Resolve PPE Notification",
+        description="Safety Engineer / Officer triggers Human-In-The-Loop (HITL) resolution for a PPE notification, updating notification status to SOLVED, setting parent AI alert to RESOLVED, recording an acknowledgement, and reflecting to the Project Engineer.",
+        responses={200: OpenApiResponse(description="HITL Resolution status")}
+    )
+    @action(detail=True, methods=['post'], url_path='hitl-resolve')
+    def hitl_resolve(self, request, pk=None):
+        notification = self.get_object()
+        decision = request.data.get('decision') or request.data.get('status') or 'SOLVED'
+        notes = request.data.get('notes') or request.data.get('remarks') or 'PPE compliance verified and resolved via HITL'
+        hitl_payload = request.data.get('hitl_data') or {}
+
+        target_status = decision.upper() if decision.upper() in ['SOLVED', 'RESOLVED', 'CLOSED'] else 'SOLVED'
+        notification.status = target_status
+
+        updated_hitl = dict(notification.hitl_data or {})
+        updated_hitl.update({
+            "decision": decision,
+            "resolved_by": request.user.username if (request.user and request.user.is_authenticated) else "Safety Officer",
+            "resolved_at": timezone.now().isoformat(),
+            "notes": notes,
+            "payload": hitl_payload
+        })
+        notification.hitl_data = updated_hitl
+        notification.save()
+
+        alert = notification.alert
+        if alert:
+            alert.status = 'RESOLVED'
+            if request.user and request.user.is_authenticated:
+                alert.acknowledged_by = request.user
+            alert.save()
+
+            PPEAcknowledgement.objects.create(
+                alert=alert,
+                acknowledged_by=request.user if (request.user and request.user.is_authenticated) else None,
+                acknowledged_by_role="Safety Officer",
+                notes=notes
+            )
+
+        serializer = self.get_serializer(notification)
+        return Response({
+            "success": True,
+            "data": serializer.data,
+            "message": f"PPE Notification {notification.notification_id} resolved via HITL successfully. Updated state reflected to Project Engineer."
+        }, status=status.HTTP_200_OK)
 
 
 class IncidentViewSet(StandardizedModelViewSet):
