@@ -23,4 +23,4 @@ COPY . /app/
 EXPOSE 8000
 
 # Start script: Run migrations, seed baseline data, and start Gunicorn WSGI server
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed_data && gunicorn --bind 0.0.0.0:8000 --workers 3 lt_be_v1.wsgi:application"]
+CMD ["sh", "-c", "python manage.py migrate --fake-initial --noinput && python manage.py seed_data && gunicorn --bind 0.0.0.0:8000 --workers 3 lt_be_v1.wsgi:application"]
