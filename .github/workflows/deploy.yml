@@ -8,21 +8,16 @@ on:
 jobs:
   deploy:
     name: Build & Deploy Docker Container
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Deploy via SSH to Production Server
-        uses: appleboy/ssh-action@v1.0.3
-        with:
-          host: 10.1.150.142
-          username: tidcoadmin
-          password: ${{ secrets.SERVER_SSH_PASSWORD }}
-          script: |
-            cd ~/lt-be-v1
-            git pull origin main
-            docker compose down
-            docker compose up -d --build
-            docker image prune -f
+      - name: Deploy Docker Container
+        run: |
+          cd ~/lt-be-v1 || exit 1
+          git pull origin main
+          docker compose down
+          docker compose up -d --build
+          docker image prune -f
