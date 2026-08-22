@@ -26,7 +26,19 @@ load_dotenv(BASE_DIR / '.env')
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-1p2al4x$=q5v$i%yhjfgz1cja@9a7_!#i5@3nwkmeb!tv!7gs-')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS')
+allowed_hosts_env = os.getenv('ALLOWED_HOSTS', 'localhost:5173, 10.1.150.142:3000, localhost, 10.1.150.142, 127.0.0.1')
+if allowed_hosts_env:
+    if allowed_hosts_env.strip().startswith('[') and allowed_hosts_env.strip().endswith(']'):
+        import ast
+        try:
+            ALLOWED_HOSTS = ast.literal_eval(allowed_hosts_env.strip())
+        except Exception:
+            ALLOWED_HOSTS = [h.strip(" '\"[]") for h in allowed_hosts_env.split(',') if h.strip(" '\"[]")]
+    else:
+        ALLOWED_HOSTS = [h.strip() for h in allowed_hosts_env.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = ['localhost:5173', '10.1.150.142:3000', 'localhost', '10.1.150.142', '127.0.0.1']
+
 
 
 # Application definition
@@ -207,15 +219,23 @@ SPECTACULAR_SETTINGS = {
     'COMPONENT_SPLIT_REQUEST': True,
 }
 
-# CORS Configuration
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS & CSRF Configuration
+CORS_ALLOW_ALL_ORIGINS = False
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
+    "http://10.1.150.142:3000",
     "http://localhost:3000",
-    "http://127.0.0.1:3000",
 ]
+
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://10.1.150.142:3000",
+    "http://localhost:3000",
+]
+
 
 
 
