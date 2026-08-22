@@ -16,8 +16,15 @@ jobs:
 
       - name: Deploy Docker Container
         run: |
-          cd ~/lt-be-v1 || exit 1
-          git pull origin main
-          docker compose down
-          docker compose up -d --build
+          # Detect Docker Compose binary (docker compose v2 vs docker-compose v1)
+          if docker compose version >/dev/null 2>&1; then
+            DOCKER_COMPOSE="docker compose"
+          else
+            DOCKER_COMPOSE="docker-compose"
+          fi
+
+          echo "Using $DOCKER_COMPOSE for deployment"
+          $DOCKER_COMPOSE down || true
+          $DOCKER_COMPOSE up -d --build
           docker image prune -f
+
