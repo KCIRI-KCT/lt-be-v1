@@ -16,4 +16,6 @@ urlpatterns = [
 
     # Application API Routes
     path('api/', include('LT_AMS_API.urls')),
+    path('api/', include('apps.logs.urls')),
 ]
+
