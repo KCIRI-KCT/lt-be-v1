@@ -253,18 +253,48 @@ SPECTACULAR_SETTINGS = {
 }
 
 # CORS & CSRF Configuration
-CORS_ALLOW_ALL_ORIGINS = False
-CORS_ALLOW_CREDENTIALS = True
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://10.1.150.142:3000",
-    "http://localhost:3000",
+# CORS_ALLOW_ALL_ORIGINS = False
+# CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOWED_ORIGINS = [
+#     "http://localhost:5173",
+#     "http://127.0.0.1:5173",
+#     "http://10.1.150.142:3000",
+#     "http://localhost:3000",
+# ]
+
+# Security settings
+DEBUG = False
+
+ALLOWED_HOSTS = [
+    "siteaense.kct.ac.in",
+    "10.1.150.142",
+    "localhost",
+    "127.0.0.1",
+    "backend",
 ]
 
+# CSRF_TRUSTED_ORIGINS = [
+#     "http://localhost:5173",
+#     "http://127.0.0.1:5173",
+#     "http://10.1.150.142:3000",
+#     "http://localhost:3000",
+# ]
+
+
+# Tell Django it is operating behind Cloudflare HTTPS Reverse Proxy
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+USE_X_FORWARDED_HOST = True
+USE_X_FORWARDED_PORT = True
+
+
+# CSRF & CORS Whitelist
 CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-    "http://10.1.150.142:3000",
-    "http://localhost:3000",
+    "https://siteaense.kct.ac.in",
+    "http://10.1.150.142",
 ]
+
+CORS_ALLOWED_ORIGINS = [
+    "https://siteaense.kct.ac.in",
+    "http://10.1.150.142",
+]
+CORS_ALLOW_CREDENTIALS = True
