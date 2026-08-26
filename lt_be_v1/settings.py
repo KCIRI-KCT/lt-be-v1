@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 """
 
 import os
+import sys
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -40,10 +41,10 @@ else:
     ALLOWED_HOSTS = ['localhost:5173', '10.1.150.142:3000', 'localhost', '10.1.150.142', '127.0.0.1']
 
 
-
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -54,7 +55,9 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'drf_spectacular',
     'corsheaders',
+    'channels',
     'LT_AMS_API.apps.LtAmsApiConfig',
+    'apps.logs.apps.LogsConfig',
 ]
 
 MIDDLEWARE = [
@@ -86,6 +89,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'lt_be_v1.wsgi.application'
+ASGI_APPLICATION = 'core.asgi.application'
 
 
 # Custom User Model
@@ -94,8 +98,6 @@ AUTH_USER_MODEL = 'LT_AMS_API.ApplicationUser'
 
 # Database Setup (Local vs Server PostgreSQL)
 # https://docs.djangoproject.com/en/6.0/ref/settings/#databases
-
-import sys
 
 DB_ENV = os.getenv('DB_ENVIRONMENT', 'local').lower()
 
@@ -141,6 +143,36 @@ else:
     }
 
 
+# Redis & Channel Layer Configuration
+REDIS_URL = os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')
+
+if 'test' in sys.argv:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        },
+    }
+    CELERY_TASK_ALWAYS_EAGER = True
+    CELERY_TASK_EAGER_PROPAGATES = True
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [REDIS_URL],
+            },
+        },
+    }
+
+# Celery Configuration
+CELERY_BROKER_URL = REDIS_URL
+CELERY_RESULT_BACKEND = REDIS_URL
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'UTC'
+
+
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
 
@@ -176,8 +208,9 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
-STATICFILES_DIRS = [BASE_DIR/'static',]
-STATIC_ROOT = BASE_DIR/'staticfiles'
+STATICFILES_DIRS = [BASE_DIR / 'static'] if (BASE_DIR / 'static').exists() else []
+STATIC_ROOT = BASE_DIR / 'staticfiles'
+
 # Django REST Framework Settings
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -235,7 +268,3 @@ CSRF_TRUSTED_ORIGINS = [
     "http://10.1.150.142:3000",
     "http://localhost:3000",
 ]
-
-
-
-

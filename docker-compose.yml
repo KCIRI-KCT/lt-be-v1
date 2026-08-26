@@ -12,8 +12,18 @@ services:
       - SERVER_DB_PASSWORD=admin@123
       - SERVER_DB_HOST=host.docker.internal
       - SERVER_DB_PORT=5432
+      - REDIS_URL=redis://redis:6379/0
       - SECRET_KEY=django-insecure-1p2al4x$=q5v$i%yhjfgz1cja@9a7_!#i5@3nwkmeb!tv!7gs-
       - DEBUG=False
       - ALLOWED_HOSTS=localhost:5173,10.1.150.142:3000,localhost,10.1.150.142,127.0.0.1
+    depends_on:
+      - redis
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  redis:
+    image: redis:7-alpine
+    container_name: lt_ams_redis
+    restart: always
+    ports:
+      - "6379:6379"

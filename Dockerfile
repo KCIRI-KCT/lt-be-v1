@@ -22,5 +22,6 @@ COPY . /app/
 # Expose backend port 8000
 EXPOSE 8000
 
-# Start script: Run migrations, seed baseline data, and start Gunicorn WSGI server
-CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed_data && gunicorn --bind 0.0.0.0:8000 --workers 3 lt_be_v1.wsgi:application"]
+# Start script: Run migrations, seed baseline data, and start Daphne ASGI server
+CMD ["sh", "-c", "python manage.py migrate --noinput && python manage.py seed_data && daphne -b 0.0.0.0 -p 8000 core.asgi:application"]
+
