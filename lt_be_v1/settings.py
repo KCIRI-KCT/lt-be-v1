@@ -66,6 +66,7 @@ MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
+    'allow_cidr.middleware.AllowCIDRMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
@@ -268,33 +269,37 @@ DEBUG = False
 ALLOWED_HOSTS = [
     "siteaense.kct.ac.in",
     "10.1.150.142",
+    "10.1.68.42",
+    "10.1.68.45",
+    "10.1.82.235"
     "localhost",
     "127.0.0.1",
     "backend",
 ]
-
-# CSRF_TRUSTED_ORIGINS = [
-#     "http://localhost:5173",
-#     "http://127.0.0.1:5173",
-#     "http://10.1.150.142:3000",
-#     "http://localhost:3000",
-# ]
-
 
 # Tell Django it is operating behind Cloudflare HTTPS Reverse Proxy
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
 
+ALLOWED_CIDR_NETS = [
+    '10.1.82.0/24',
+    '10.1.68.0/24',
+    '10.1.150.0/24'
+] # This allows all IPs from 10.1.82.1 to 10.1.82.254
+
 
 # CSRF & CORS Whitelist
 CSRF_TRUSTED_ORIGINS = [
     "https://siteaense.kct.ac.in",
     "http://10.1.150.142",
+    "http:10.1.82.235"
+    "http://localhost:3000",
 ]
 
 CORS_ALLOWED_ORIGINS = [
     "https://siteaense.kct.ac.in",
     "http://10.1.150.142",
+    "http://localhost:3000",
 ]
 CORS_ALLOW_CREDENTIALS = True
