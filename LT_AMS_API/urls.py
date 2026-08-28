@@ -1,6 +1,6 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework_simplejwt.views import TokenObtainPairView, TokenRefreshView
 
 from . import views
 
@@ -29,11 +29,14 @@ urlpatterns = [
     # Authentication & User Management Endpoints
     path('auth/register/', views.RegisterAPIView.as_view(), name='auth_register'),
     path('auth/login/', views.LoginAPIView.as_view(), name='auth_login'),
+    path('auth/token/', views.CustomTokenObtainPairView.as_view(), name='auth_token_obtain'),
+    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('token/', views.CustomTokenObtainPairView.as_view(), name='api_token_obtain_direct'),
+    path('token/refresh/', TokenRefreshView.as_view(), name='api_token_refresh_direct'),
     path('auth/request-otp/', views.RequestOTPAPIView.as_view(), name='auth_request_otp'),
     path('auth/forgot-password/', views.ForgotPasswordAPIView.as_view(), name='auth_forgot_password'),
     path('auth/forgot-username/', views.ForgotUsernameAPIView.as_view(), name='auth_forgot_username'),
     path('auth/profile/', views.UserProfileAPIView.as_view(), name='auth_profile'),
-    path('auth/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
     # Dashboard & Analytics Summary Endpoints
     path('dashboard/metrics/', views.DashboardMetricsAPIView.as_view(), name='dashboard_metrics'),
