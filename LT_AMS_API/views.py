@@ -7,6 +7,7 @@ from rest_framework.decorators import api_view, permission_classes, action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenObtainPairView
 from drf_spectacular.utils import extend_schema, OpenApiParameter, OpenApiResponse, inline_serializer
 
 from .models import (
@@ -18,6 +19,7 @@ from .serializers import (
     EmployeeSerializer,
     UserRegistrationSerializer,
     LoginSerializer,
+    CustomTokenObtainPairSerializer,
     RequestOTPSerializer,
     ForgotPasswordSerializer,
     ForgotUsernameSerializer,
@@ -172,6 +174,10 @@ class LoginAPIView(APIView):
                 status=status.HTTP_200_OK
             )
         return Response({"status": "error", "errors": serializer.errors}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class CustomTokenObtainPairView(TokenObtainPairView):
+    serializer_class = CustomTokenObtainPairSerializer
 
 
 class RequestOTPAPIView(APIView):

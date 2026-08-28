@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import authenticate
 from django.db import models
 from .models import (
@@ -137,22 +138,70 @@ class UserRegistrationSerializer(serializers.ModelSerializer):
 
 
 class LoginSerializer(serializers.Serializer):
-    username = serializers.CharField(required=True)
+    username = serializers.CharField(required=False, allow_blank=True)
+    email = serializers.CharField(required=False, allow_blank=True)
     password = serializers.CharField(required=True, write_only=True)
 
     def validate(self, attrs):
-        username = attrs.get('username')
+        identifier = (attrs.get('username') or attrs.get('email') or '').strip()
         password = attrs.get('password')
 
-        user = authenticate(username=username, password=password)
-        if not user:
-            raise serializers.ValidationError("Invalid username or password.")
+        if not identifier or not password:
+            raise serializers.ValidationError("Username or Email, and Password are required.")
 
-        if not user.is_active or user.account_status != 'ACTIVE':
+        # 1. Lookup user by username or employee email (case-insensitive)
+        user = ApplicationUser.objects.filter(username__iexact=identifier).first()
+        if not user:
+            user = ApplicationUser.objects.filter(employee__email__iexact=identifier).first()
+
+        if user and user.check_password(password):
+            authenticated_user = user
+        else:
+            authenticated_user = authenticate(username=identifier, password=password)
+
+        if not authenticated_user:
+            raise serializers.ValidationError("Invalid username/email or password.")
+
+        if not authenticated_user.is_active or authenticated_user.account_status != 'ACTIVE':
             raise serializers.ValidationError("User account is inactive or disabled.")
 
-        attrs['user'] = user
+        attrs['user'] = authenticated_user
         return attrs
+
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    def validate(self, attrs):
+        identifier = (attrs.get('username') or '').strip()
+        password = attrs.get('password')
+
+        user = ApplicationUser.objects.filter(username__iexact=identifier).first()
+        if not user and '@' in identifier:
+            user = ApplicationUser.objects.filter(employee__email__iexact=identifier).first()
+
+        if user and user.check_password(password):
+            if not user.is_active or user.account_status != 'ACTIVE':
+                raise serializers.ValidationError("User account is inactive or disabled.")
+
+            refresh = self.get_token(user)
+            employee_data = EmployeeSerializer(user.employee).data if user.employee else None
+            return {
+                'refresh': str(refresh),
+                'access': str(refresh.access_token),
+                'tokens': {
+                    'refresh': str(refresh),
+                    'access': str(refresh.access_token),
+                },
+                'user': {
+                    'user_id': user.user_id,
+                    'username': user.username,
+                    'role_id': user.role_id,
+                    'account_status': user.account_status,
+                    'employee': employee_data,
+                },
+                'role_id': user.role_id,
+            }
+
+        return super().validate(attrs)
 
 
 class RequestOTPSerializer(serializers.Serializer):

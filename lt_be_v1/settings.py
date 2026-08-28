@@ -109,37 +109,42 @@ if 'test' in sys.argv or os.getenv('USE_SQLITE', 'False').lower() == 'true' or D
             'NAME': BASE_DIR / 'db.sqlite3',
         }
     }
-elif DB_ENV == 'server':
-    DB_NAME = os.getenv('SERVER_DB_NAME', 'landtdb')
-    DB_USER = os.getenv('SERVER_DB_USER', 'landtuser')
-    DB_PASSWORD = os.getenv('SERVER_DB_PASSWORD', 'admin@123')
-    DB_HOST = os.getenv('SERVER_DB_HOST', 'localhost')
-    DB_PORT = os.getenv('SERVER_DB_PORT', '5432')
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': DB_NAME,
-            'USER': DB_USER,
-            'PASSWORD': DB_PASSWORD,
-            'HOST': DB_HOST,
-            'PORT': DB_PORT,
-        }
-    }
 else:
-    # Default to Local Database
-    DB_NAME = os.getenv('LOCAL_DB_NAME', 'landtdb-local')
-    DB_USER = os.getenv('LOCAL_DB_USER', 'postgres')
-    DB_PASSWORD = os.getenv('LOCAL_DB_PASSWORD', 'admin@123')
-    DB_HOST = os.getenv('LOCAL_DB_HOST', 'localhost')
-    DB_PORT = os.getenv('LOCAL_DB_PORT', '5432')
+    # Select environment settings based on DB_ENVIRONMENT variable
+    if DB_ENV == 'server':
+        db_name = os.getenv('SERVER_DB_NAME') or os.getenv('DB_NAME', 'landtdb')
+        db_user = os.getenv('SERVER_DB_USER') or os.getenv('DB_USER', 'landtuser')
+        db_password = os.getenv('SERVER_DB_PASSWORD') or os.getenv('DB_PASSWORD', '')
+        db_host = os.getenv('SERVER_DB_HOST') or os.getenv('DB_HOST', 'localhost')
+        db_port = os.getenv('SERVER_DB_PORT') or os.getenv('DB_PORT', '5432')
+    else:
+        # Default to local database configuration
+        db_name = os.getenv('LOCAL_DB_NAME') or os.getenv('DB_NAME', 'landtdb-local')
+        db_user = os.getenv('LOCAL_DB_USER') or os.getenv('DB_USER', 'postgres')
+        db_password = os.getenv('LOCAL_DB_PASSWORD') or os.getenv('DB_PASSWORD', '')
+        db_host = os.getenv('LOCAL_DB_HOST') or os.getenv('DB_HOST', 'localhost')
+        db_port = os.getenv('LOCAL_DB_PORT') or os.getenv('DB_PORT', '5432')
+
+    db_engine = os.getenv('DB_ENGINE', 'django.db.backends.postgresql')
+    conn_max_age = int(os.getenv('DB_CONN_MAX_AGE', '0'))
+
+    db_options = {}
+    if 'postgresql' in db_engine:
+        # Prevent ASGI worker hangs on DB timeouts (fail fast in 5 seconds)
+        db_options = {
+            'connect_timeout': int(os.getenv('DB_CONNECT_TIMEOUT', '5')),
+        }
+
     DATABASES = {
         'default': {
-            'ENGINE': 'django.db.backends.postgresql',
-            'NAME': DB_NAME,
-            'USER': DB_USER,
-            'PASSWORD': DB_PASSWORD,
-            'HOST': DB_HOST,
-            'PORT': DB_PORT,
+            'ENGINE': db_engine,
+            'NAME': db_name,
+            'USER': db_user,
+            'PASSWORD': db_password,
+            'HOST': db_host,
+            'PORT': db_port,
+            'CONN_MAX_AGE': conn_max_age,
+            'OPTIONS': db_options,
         }
     }
 
@@ -246,38 +251,38 @@ SIMPLE_JWT = {
 
 # Swagger / OpenAPI Settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Land & T Application API Services',
+    'TITLE': 'Siteaense Application API Services',
     'DESCRIPTION': 'REST API services for Authentication, Employee Management, and Access Control',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'COMPONENT_SPLIT_REQUEST': True,
 }
 
-# CORS & CSRF Configuration
-# CORS_ALLOW_ALL_ORIGINS = False
-# CORS_ALLOW_CREDENTIALS = True
-# CORS_ALLOWED_ORIGINS = [
-#     "http://localhost:5173",
-#     "http://127.0.0.1:5173",
-#     "http://10.1.150.142:3000",
-#     "http://localhost:3000",
-# ]
+# Security & Host Configuration
+# Default DEBUG to True in local development, False in server/production
+DEBUG = os.getenv('DEBUG', 'True' if os.getenv('DB_ENVIRONMENT', 'local').lower() in ('local', 'sqlite', 'sqlite3') else 'False').lower() in ('true', '1', 't')
 
-# Security settings
-DEBUG = False
+# Parse ALLOWED_HOSTS dynamically from environment with robust defaults
+_env_allowed_hosts = os.getenv('ALLOWED_HOSTS')
+if _env_allowed_hosts:
+    ALLOWED_HOSTS = [h.strip() for h in _env_allowed_hosts.split(',') if h.strip()]
+else:
+    ALLOWED_HOSTS = [
+        "siteaense.kct.ac.in",
+        "sitesense.kct.ac.in",
+        "103.196.28.198",
+        "10.1.150.142",
+        "10.1.68.42",
+        "10.1.68.45",
+        "10.1.82.235",
+        "localhost",
+        "127.0.0.1",
+        "backend",
+        "lt_ams_backend",
+        "testserver",
+    ]
 
-ALLOWED_HOSTS = [
-    "siteaense.kct.ac.in",
-    "10.1.150.142",
-    "10.1.68.42",
-    "10.1.68.45",
-    "10.1.82.235"
-    "localhost",
-    "127.0.0.1",
-    "backend",
-]
-
-# Tell Django it is operating behind Cloudflare HTTPS Reverse Proxy
+# Tell Django it is operating behind Cloudflare/Nginx HTTPS Reverse Proxy
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 USE_X_FORWARDED_HOST = True
 USE_X_FORWARDED_PORT = True
@@ -285,21 +290,96 @@ USE_X_FORWARDED_PORT = True
 ALLOWED_CIDR_NETS = [
     '10.1.82.0/24',
     '10.1.68.0/24',
-    '10.1.150.0/24'
-] # This allows all IPs from 10.1.82.1 to 10.1.82.254
-
-
-# CSRF & CORS Whitelist
-CSRF_TRUSTED_ORIGINS = [
-    "https://siteaense.kct.ac.in",
-    "http://10.1.150.142",
-    "http:10.1.82.235"
-    "http://localhost:3000",
+    '10.1.150.0/24',
+    '172.16.0.0/12',
+    '192.168.0.0/16',
 ]
 
-CORS_ALLOWED_ORIGINS = [
-    "https://siteaense.kct.ac.in",
-    "http://10.1.150.142",
-    "http://localhost:3000",
-]
+# CSRF & CORS Whitelist (Parsed from env with robust defaults)
+_env_csrf = os.getenv('CSRF_TRUSTED_ORIGINS')
+if _env_csrf:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in _env_csrf.split(',') if o.strip()]
+else:
+    CSRF_TRUSTED_ORIGINS = [
+        "https://siteaense.kct.ac.in",
+        "https://sitesense.kct.ac.in",
+        "http://siteaense.kct.ac.in",
+        "http://103.196.28.198",
+        "http://103.196.28.198:3000",
+        "http://10.1.150.142",
+        "http://10.1.150.142:3000",
+        "http://10.1.82.235",
+        "http://10.1.82.235:3000",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+
+_env_cors = os.getenv('CORS_ALLOWED_ORIGINS')
+if _env_cors:
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in _env_cors.split(',') if o.strip()]
+else:
+    CORS_ALLOWED_ORIGINS = [
+        "https://siteaense.kct.ac.in",
+        "https://sitesense.kct.ac.in",
+        "http://siteaense.kct.ac.in",
+        "http://103.196.28.198",
+        "http://103.196.28.198:3000",
+        "http://10.1.150.142",
+        "http://10.1.150.142:3000",
+        "http://10.1.82.235:3000",
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOW_HEADERS = [
+    'accept',
+    'accept-encoding',
+    'authorization',
+    'content-type',
+    'dnt',
+    'origin',
+    'user-agent',
+    'x-csrftoken',
+    'x-requested-with',
+]
+
+# Production Logging Configuration
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{asctime} [{levelname}] [{name}] {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+        'null': {
+            'class': 'logging.NullHandler',
+        },
+    },
+    'loggers': {
+        'django.security.DisallowedHost': {
+            'handlers': ['null'],
+            'propagate': False,
+        },
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}
