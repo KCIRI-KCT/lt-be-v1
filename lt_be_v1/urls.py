@@ -19,6 +19,5 @@ urlpatterns = [
 
     # Application API Routes (v1 canonical + legacy /api/ prefix support)
     path('api/', include('LT_AMS_API.urls')),
-    path('api/', include('LT_AMS_API.urls')),
 ]
 
