@@ -18,8 +18,6 @@ services:
       - ALLOWED_HOSTS=localhost,10.1.150.142,siteaense.kct.ac.in
     depends_on:
       - redis
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
 
   redis:
     image: redis:7-alpine
