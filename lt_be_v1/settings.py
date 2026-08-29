@@ -112,18 +112,18 @@ if 'test' in sys.argv or os.getenv('USE_SQLITE', 'False').lower() == 'true' or D
 else:
     # Select environment settings based on DB_ENVIRONMENT variable
     if DB_ENV == 'server':
-        db_name = os.getenv('SERVER_DB_NAME') or os.getenv('DB_NAME', 'landtdb')
-        db_user = os.getenv('SERVER_DB_USER') or os.getenv('DB_USER', 'landtuser')
-        db_password = os.getenv('SERVER_DB_PASSWORD') or os.getenv('DB_PASSWORD', '')
-        db_host = os.getenv('SERVER_DB_HOST') or os.getenv('DB_HOST', 'localhost')
-        db_port = os.getenv('SERVER_DB_PORT') or os.getenv('DB_PORT', '5432')
+        db_name = os.getenv('SERVER_DB_NAME')
+        db_user = os.getenv('SERVER_DB_USER')
+        db_password = os.getenv('SERVER_DB_PASSWORD')
+        db_host = os.getenv('SERVER_DB_HOST')
+        db_port = os.getenv('SERVER_DB_PORT')
     else:
         # Default to local database configuration
-        db_name = os.getenv('LOCAL_DB_NAME') or os.getenv('DB_NAME', 'landtdb-local')
-        db_user = os.getenv('LOCAL_DB_USER') or os.getenv('DB_USER', 'postgres')
-        db_password = os.getenv('LOCAL_DB_PASSWORD') or os.getenv('DB_PASSWORD', '')
-        db_host = os.getenv('LOCAL_DB_HOST') or os.getenv('DB_HOST', 'localhost')
-        db_port = os.getenv('LOCAL_DB_PORT') or os.getenv('DB_PORT', '5432')
+        db_name = os.getenv('LOCAL_DB_NAME')
+        db_user = os.getenv('LOCAL_DB_USER')
+        db_password = os.getenv('LOCAL_DB_PASSWORD')
+        db_host = os.getenv('LOCAL_DB_HOST')
+        db_port = os.getenv('LOCAL_DB_PORT')
 
     db_engine = os.getenv('DB_ENGINE', 'django.db.backends.postgresql')
     conn_max_age = int(os.getenv('DB_CONN_MAX_AGE', '0'))
