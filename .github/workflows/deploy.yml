@@ -19,9 +19,9 @@ jobs:
           docker compose build backend
           docker compose up -d --no-deps backend celery_worker
           
-          # Run Database Migrations
-          ssh tidcoadmin@10.1.150.142 "cd /opt/lt-construction && docker compose exec -T backend python manage.py migrate --noinput"
-          ssh tidcoadmin@10.1.150.142 "cd /opt/lt-construction && docker compose exec -T backend python manage.py collectstatic --noinput"
+          # Run Database Migrations & Collect Static directly
+          docker compose exec -T backend python manage.py migrate --noinput
+          docker compose exec -T backend python manage.py collectstatic --noinput
           
           # Reload gateway routes
-          "cd /opt/lt-construction && docker compose restart gateway"
+          docker compose restart gateway
