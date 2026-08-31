@@ -24,4 +24,4 @@ jobs:
           ssh tidcoadmin@10.1.150.142 "cd /opt/lt-construction && docker compose exec -T backend python manage.py collectstatic --noinput"
           
           # Reload gateway routes
-          ssh tidcoadmin@10.1.150.142 "cd /opt/lt-construction && docker compose restart gateway"
+          "cd /opt/lt-construction && docker compose restart gateway"
