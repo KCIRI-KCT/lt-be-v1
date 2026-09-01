@@ -314,6 +314,8 @@ else:
         "http://localhost:5173",
         "http://127.0.0.1:3000",
         "http://127.0.0.1:5173",
+        "capacitor://localhost",
+        "http://localhost",
     ]
 
 _env_cors = os.getenv('CORS_ALLOWED_ORIGINS')
@@ -324,6 +326,9 @@ else:
         "https://siteaense.kct.ac.in",
         "https://sitesense.kct.ac.in",
         "http://siteaense.kct.ac.in",
+        "capacitor://localhost",
+        "http://localhost",
+        "https://localhost",
         "http://103.196.28.198",
         "http://103.196.28.198:3000",
         "http://10.1.150.142",
