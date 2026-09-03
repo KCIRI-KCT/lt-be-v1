@@ -22,8 +22,8 @@ class RoleAdmin(admin.ModelAdmin):
 
 @admin.register(Employee)
 class EmployeeAdmin(admin.ModelAdmin):
-    list_display = ('employee_id', 'employee_code', 'employee_name', 'department', 'designation', 'email', 'mobile_number', 'status')
-    search_fields = ('employee_code', 'employee_name', 'email', 'mobile_number', 'department')
+    list_display = ('employee_id', 'employee_code', 'employee_name', 'department', 'designation', 'email', 'mobile_number', 'city', 'state', 'country', 'status')
+    search_fields = ('employee_code', 'employee_name', 'email', 'mobile_number', 'department', 'address', 'city', 'state', 'country', 'pincode')
     list_filter = ('status', 'department', 'organization_id')
     ordering = ('-created_at',)
 

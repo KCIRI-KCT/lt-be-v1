@@ -25,6 +25,11 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'department',
             'email',
             'mobile_number',
+            'address',
+            'city',
+            'state',
+            'country',
+            'pincode',
             'status',
             'created_at',
             'updated_at'
