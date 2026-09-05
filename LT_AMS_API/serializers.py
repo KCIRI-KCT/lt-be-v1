@@ -343,6 +343,15 @@ class CitySerializer(serializers.ModelSerializer):
 # ==============================================================================
 class ChainageSerializer(serializers.ModelSerializer):
     site_name = serializers.CharField(source='site.name', read_only=True)
+    project_id = serializers.CharField(source='site.project.project_id', read_only=True)
+    project_name = serializers.CharField(source='site.project.name', read_only=True)
+    # Enforce OpenAPI ChainageRequest: km_marker string 1..50 regex ^KM\s*\d+(\+\d{1,3})?$
+    km_marker = serializers.RegexField(
+        regex=r'^KM\s*\d+(\+\d{1,3})?$',
+        max_length=50,
+        min_length=1,
+        error_messages={'invalid': 'km_marker must match format e.g. KM 120+400 (regex: ^KM\\s*\\d+(\\+\\d{1,3})?$)'}
+    )
 
     class Meta:
         model = Chainage

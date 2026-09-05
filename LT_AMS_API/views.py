@@ -646,8 +646,15 @@ class ChainageViewSet(StandardizedModelViewSet):
     def get_queryset(self):
         queryset = super().get_queryset()
         site_id = _get_site_id(self.request)
+        project_id = (
+            self.request.query_params.get('projectId') or
+            self.request.query_params.get('project_id') or
+            self.request.query_params.get('project')
+        )
         if site_id:
             queryset = queryset.filter(site_id=site_id)
+        if project_id:
+            queryset = queryset.filter(site__project_id=project_id)
         return queryset
 
 

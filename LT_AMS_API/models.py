@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager
+from django.core.validators import RegexValidator
 from django.utils import timezone
 import datetime
 
@@ -300,7 +301,17 @@ class Chainage(models.Model):
     chainage_id = models.BigAutoField(primary_key=True, db_column='chainage_id')
     name = models.CharField(max_length=255, db_column='name')
     site = models.ForeignKey(Site, on_delete=models.CASCADE, related_name='chainages', db_column='site_id')
-    km_marker = models.CharField(max_length=50, db_column='km_marker')
+    km_marker = models.CharField(
+        max_length=50,
+        db_column='km_marker',
+        validators=[
+            RegexValidator(
+                regex=r'^KM\s*\d+(\+\d{1,3})?$',
+                message='km_marker must match standard linear milestone format e.g. KM 120+400'
+            )
+        ],
+        help_text='Standard linear milestone format e.g. KM 120+400'
+    )
     status = models.CharField(max_length=50, default='ACTIVE', db_index=True, db_column='status')
     progress = models.FloatField(default=0.0, db_column='progress')
     workers_count = models.IntegerField(default=0, db_column='workers_count')

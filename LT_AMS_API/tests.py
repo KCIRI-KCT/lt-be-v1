@@ -412,11 +412,11 @@ class ProjectHierarchyAPITestCase(APITestCase):
         response = self.client.get(url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
-        # POST Create
+        # POST Create — km_marker must match ^KM\s*\d+(\+\d{1,3})?$
         payload = {
             "name": "KM 10-20 Segment",
             "site": self.site.site_id,
-            "km_marker": "KM-002",
+            "km_marker": "KM 10+200",
             "status": "ACTIVE"
         }
         create_resp = self.client.post(url, payload, format='json')
@@ -428,11 +428,11 @@ class ProjectHierarchyAPITestCase(APITestCase):
         detail_resp = self.client.get(detail_url)
         self.assertEqual(detail_resp.status_code, status.HTTP_200_OK)
 
-        # PUT Update
+        # PUT Update — valid km_marker
         update_resp = self.client.put(detail_url, {
             "name": "KM 10-20 Segment Updated",
             "site": self.site.site_id,
-            "km_marker": "KM-002",
+            "km_marker": "KM 10+250",
             "status": "ACTIVE"
         }, format='json')
         self.assertEqual(update_resp.status_code, status.HTTP_200_OK)
